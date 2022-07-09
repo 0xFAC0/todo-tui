@@ -1,4 +1,4 @@
-use std::{error::Error, io, slice::Chunks, sync::Arc};
+use std::{error::Error, io};
 
 use crossterm::{
     event::{self, *},
@@ -7,8 +7,7 @@ use crossterm::{
 };
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
-    style::Style,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     text::Text,
     widgets::{Block, BorderType, Borders, Paragraph, Clear},
     Frame, Terminal,
