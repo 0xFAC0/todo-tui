@@ -8,6 +8,8 @@ use crossterm::{
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::Color,
+    style::Style,
     text::{Span, Text},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
@@ -120,7 +122,15 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                         }
                         KeyCode::Char('d') => {
                             if let Some(i) = app.list.state.selected() {
-                                app.list.items.remove(i);
+                                if i < app.list.items.len() {
+                                    app.list.items.remove(i);
+                                    app.list.state.select(None);
+                                }
+                            }
+                        }
+                        KeyCode::Enter => {
+                            if let Some(i) = app.list.state.selected() {
+                                app.list.items[i].done = !app.list.items[i].done;
                             }
                         }
                         _ => {}
@@ -166,15 +176,22 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .list
         .items
         .iter()
-        .map(|i| ListItem::new(Span::raw(i.msg.clone())))
+        .map(|i| {
+            if i.done {
+                return ListItem::new(Span::raw(format!("✓ {}", i.msg.clone())));
+            }
+            ListItem::new(Span::raw(format!("  {}", i.msg.clone())))
+        })
         .collect();
-    let list = List::new(items).highlight_symbol(">").block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .title("Tasks")
-            .title_alignment(Alignment::Center),
-    );
+    let list = List::new(items)
+        .highlight_style(Style::default().fg(Color::Black).bg(Color::White))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Tasks")
+                .title_alignment(Alignment::Center),
+        );
 
     f.render_stateful_widget(list, chunks[0], &mut app.list.state);
     f.render_widget(command_helper(), chunks[1]);
@@ -206,7 +223,7 @@ fn base_layout<B: Backend>(f: &Frame<B>) -> Vec<Rect> {
 
 fn command_helper() -> Paragraph<'static> {
     Paragraph::new(Text::raw(
-        "q: Quit | Space: Select | n: New task | d: delete | h: left | j: up | k: down | l: right",
+        "q: Quit | Space: Select | n: New task | d: delete | h: left | j: up | k: down | l: right | Enter: Mark done",
     ))
     .alignment(Alignment::Center)
     .block(
