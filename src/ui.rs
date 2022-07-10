@@ -8,20 +8,58 @@ use crossterm::{
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    text::Text,
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+    text::{Span, Text},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
+
+use crate::task::Task;
 
 enum InputMode {
     Normal,
     Editing,
 }
 
+struct StateFullList<T> {
+    state: ListState,
+    items: Vec<T>,
+}
+
+impl<T> StateFullList<T> {
+    fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+}
+
 struct App {
     pub new_task_pop_up: bool,
     pub input_mode: InputMode,
     pub input: String,
+    pub list: StateFullList<Task>,
 }
 
 impl App {
@@ -30,6 +68,10 @@ impl App {
             new_task_pop_up: false,
             input_mode: InputMode::Normal,
             input: String::new(),
+            list: StateFullList {
+                state: ListState::default(),
+                items: vec![],
+            },
         }
     }
 }
@@ -64,12 +106,24 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
         match app.input_mode {
             InputMode::Normal => {
                 if let Event::Key(key) = event::read()? {
-                    if let KeyCode::Char('q') = key.code {
-                        return Ok(());
-                    }
-                    if let KeyCode::Char('n') = key.code {
-                        app.new_task_pop_up = true;
-                        app.input_mode = InputMode::Editing;
+                    match key.code {
+                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Char('n') => {
+                            app.new_task_pop_up = true;
+                            app.input_mode = InputMode::Editing;
+                        }
+                        KeyCode::Char('j') => {
+                            app.list.next();
+                        }
+                        KeyCode::Char('k') => {
+                            app.list.previous();
+                        }
+                        KeyCode::Char('d') => {
+                            if let Some(i) = app.list.state.selected() {
+                                app.list.items.remove(i);
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -90,10 +144,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                             app.input = String::new();
                         }
                         KeyCode::Enter => {
-                            //TODO add a tasklist to app
-                            // TODO tasklist.new(blabla) if !input.is_empty()
+                            if !app.input.is_empty() {
+                                app.list.items.push(Task::new(app.input.clone()));
+                            }
                             app.input_mode = InputMode::Normal;
                             app.new_task_pop_up = false;
+                            app.input = String::new();
                         }
                         _ => {}
                     }
@@ -104,14 +160,23 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let main_block = Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .title("TODO List")
-        .title_alignment(Alignment::Center);
-
     let chunks = base_layout(f);
-    f.render_widget(main_block, chunks[0]);
+
+    let items: Vec<ListItem> = app
+        .list
+        .items
+        .iter()
+        .map(|i| ListItem::new(Span::raw(i.msg.clone())))
+        .collect();
+    let list = List::new(items).highlight_symbol(">").block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .title("Tasks")
+            .title_alignment(Alignment::Center),
+    );
+
+    f.render_stateful_widget(list, chunks[0], &mut app.list.state);
     f.render_widget(command_helper(), chunks[1]);
 
     if app.new_task_pop_up {
