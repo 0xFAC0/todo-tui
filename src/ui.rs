@@ -238,13 +238,25 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .title_alignment(Alignment::Center),
         );
 
-    if let Some(_) = app.list.state.selected() {
-        let sub_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-            .split(chunks[0]);
-        f.render_stateful_widget(list, sub_chunks[0], &mut app.list.state);
-        f.render_widget(tmp_box(), sub_chunks[1]);
+    if let Some(i) = app.list.state.selected() {
+        if let Some(ref details) = app.list.items[i].details {
+            let sub_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(chunks[0]);
+            f.render_stateful_widget(list, sub_chunks[0], &mut app.list.state);
+            f.render_widget(
+                details_win(details.clone()).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded),
+                ),
+                sub_chunks[1],
+            );
+        } else {
+            // TO REFRACTOR DUPPLICATION
+            f.render_stateful_widget(list, chunks[0], &mut app.list.state);
+        }
     } else {
         f.render_stateful_widget(list, chunks[0], &mut app.list.state);
     }
@@ -337,9 +349,6 @@ fn input_popup(app: &App, popup: Popup) -> Paragraph<'static> {
     )
 }
 
-fn tmp_box() -> Block<'static> {
-    Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .title("Details")
+fn details_win(details: String) -> Paragraph<'static> {
+    Paragraph::new(Text::raw(details)).wrap(Wrap { trim: true })
 }
