@@ -115,11 +115,22 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                             app.input_mode = InputMode::Editing;
                         }
                         KeyCode::Char('j') => {
-                            app.list.next();
+                            if app.list.items.len() > 0 {
+                                app.list.next();
+                            }
                         }
-                        KeyCode::Char('k') => {
-                            app.list.previous();
-                        }
+                        KeyCode::Char('k') => match app.list.state.selected() {
+                            Some(i) => {
+                                if i > 0 {
+                                    app.list.previous();
+                                }
+                            }
+                            None => {
+                                if app.list.items.len() > 0 {
+                                    app.list.previous();
+                                }
+                            }
+                        },
                         KeyCode::Char('d') => {
                             if let Some(i) = app.list.state.selected() {
                                 if i < app.list.items.len() {
@@ -193,7 +204,17 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .title_alignment(Alignment::Center),
         );
 
-    f.render_stateful_widget(list, chunks[0], &mut app.list.state);
+    if let Some(_) = app.list.state.selected() {
+        let sub_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(chunks[0]);
+        f.render_stateful_widget(list, sub_chunks[0], &mut app.list.state);
+        f.render_widget(detail_winf(), sub_chunks[1]);
+    } else {
+        f.render_stateful_widget(list, chunks[0], &mut app.list.state);
+    }
+
     f.render_widget(command_helper(), chunks[1]);
 
     if app.new_task_pop_up {
@@ -270,4 +291,11 @@ fn input_pop_up(app: &App) -> Paragraph<'static> {
                 .title("Add a new task")
                 .title_alignment(Alignment::Center),
         )
+}
+
+fn detail_winf() -> Block<'static> {
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .title("Details")
 }
