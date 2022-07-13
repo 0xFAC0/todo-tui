@@ -253,10 +253,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     if let Some(popup) = app.popup {
         let mut area = centered_rect(60, 20, f.size());
-        area.height = 3;
         f.render_widget(Clear, area);
         match popup {
-            Popup::NewTaskName => f.render_widget(input_popup(app, Popup::NewTaskName), area),
+            Popup::NewTaskName => {
+                area.height = 3;
+                f.render_widget(input_popup(app, Popup::NewTaskName), area);
+            }
             Popup::NewTaskDetails => f.render_widget(input_popup(app, Popup::NewTaskDetails), area),
         }
     }
