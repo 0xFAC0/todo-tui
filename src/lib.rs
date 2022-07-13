@@ -5,11 +5,16 @@ pub mod task {
     pub struct Task {
         pub done: bool,
         pub msg: String,
+        pub details: Option<String>,
     }
 
     impl Task {
-        pub fn new(msg: String) -> Task {
-            Task { done: false, msg }
+        pub fn new(msg: String, details: Option<String>) -> Task {
+            Task {
+                done: false,
+                msg,
+                details,
+            }
         }
     }
 }

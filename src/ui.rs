@@ -22,6 +22,12 @@ enum InputMode {
     Editing,
 }
 
+#[derive(Clone, Copy)]
+enum Popup {
+    NewTaskName,
+    NewTaskDetails,
+}
+
 struct StateFullList<T> {
     state: ListState,
     items: Vec<T>,
@@ -58,18 +64,18 @@ impl<T> StateFullList<T> {
 }
 
 struct App {
-    pub new_task_pop_up: bool,
+    pub popup: Option<Popup>,
     pub input_mode: InputMode,
-    pub input: String,
+    pub input: Vec<String>,
     pub list: StateFullList<Task>,
 }
 
 impl App {
     pub fn new() -> Self {
         App {
-            new_task_pop_up: false,
+            popup: None,
             input_mode: InputMode::Normal,
-            input: String::new(),
+            input: vec![String::new(), String::new()],
             list: StateFullList {
                 state: ListState::default(),
                 items: vec![],
@@ -111,7 +117,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                     match key.code {
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('n') => {
-                            app.new_task_pop_up = true;
+                            app.popup = Some(Popup::NewTaskName);
                             app.input_mode = InputMode::Editing;
                         }
                         KeyCode::Char('j') => {
@@ -152,25 +158,53 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char(c) => {
-                            app.input.push(c);
+                            if let Some(popup) = app.popup {
+                                match popup {
+                                    Popup::NewTaskName => app.input[0].push(c),
+                                    Popup::NewTaskDetails => app.input[1].push(c),
+                                };
+                            }
                         }
                         KeyCode::Backspace => {
-                            if app.input.len() > 0 {
-                                app.input.pop();
+                            if let Some(popup) = app.popup {
+                                match popup {
+                                    Popup::NewTaskName => app.input[0].pop(),
+                                    Popup::NewTaskDetails => app.input[1].pop(),
+                                };
                             }
                         }
                         KeyCode::Esc => {
                             app.input_mode = InputMode::Normal;
-                            app.new_task_pop_up = false;
-                            app.input = String::new();
+                            app.popup = None;
+                            app.input[0] = String::new();
+                            app.input[1] = String::new();
                         }
                         KeyCode::Enter => {
-                            if !app.input.is_empty() {
-                                app.list.items.push(Task::new(app.input.clone()));
+                            if let Some(popup) = app.popup {
+                                match popup {
+                                    Popup::NewTaskName => {
+                                        if !app.input.is_empty() {
+                                            app.popup = Some(Popup::NewTaskDetails);
+                                        }
+                                    }
+                                    Popup::NewTaskDetails => {
+                                        if app.input[1].is_empty() {
+                                            app.list
+                                                .items
+                                                .push(Task::new(app.input[0].clone(), None));
+                                        } else {
+                                            app.list.items.push(Task::new(
+                                                app.input[0].clone(),
+                                                Some(app.input[1].clone()),
+                                            ));
+                                        }
+                                        app.input[1] = String::new();
+                                        app.input[0] = String::new();
+                                        app.popup = None;
+                                        app.input_mode = InputMode::Normal;
+                                    }
+                                }
                             }
-                            app.input_mode = InputMode::Normal;
-                            app.new_task_pop_up = false;
-                            app.input = String::new();
                         }
                         _ => {}
                     }
@@ -217,11 +251,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(command_helper(), chunks[1]);
 
-    if app.new_task_pop_up {
+    if let Some(popup) = app.popup {
         let mut area = centered_rect(60, 20, f.size());
         area.height = 3;
         f.render_widget(Clear, area);
-        f.render_widget(input_pop_up(app), area);
+        match popup {
+            Popup::NewTaskName => f.render_widget(input_popup(app, Popup::NewTaskName), area),
+            Popup::NewTaskDetails => f.render_widget(input_popup(app, Popup::NewTaskDetails), area),
+        }
     }
 }
 
@@ -281,16 +318,21 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-fn input_pop_up(app: &App) -> Paragraph<'static> {
-    Paragraph::new(Text::raw(app.input.clone()))
-        .wrap(Wrap { trim: true })
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .title("Add a new task")
-                .title_alignment(Alignment::Center),
-        )
+fn input_popup(app: &App, popup: Popup) -> Paragraph<'static> {
+    let (text, title) = match popup {
+        Popup::NewTaskName => (Text::raw(app.input[0].clone()), "Add a new task"),
+        Popup::NewTaskDetails => (
+            Text::raw(app.input[1].clone()),
+            "Add details (blank for none)",
+        ),
+    };
+    Paragraph::new(text).wrap(Wrap { trim: true }).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .title(title)
+            .title_alignment(Alignment::Center),
+    )
 }
 
 fn tmp_box() -> Block<'static> {
