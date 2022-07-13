@@ -210,7 +210,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
             .split(chunks[0]);
         f.render_stateful_widget(list, sub_chunks[0], &mut app.list.state);
-        f.render_widget(detail_winf(), sub_chunks[1]);
+        f.render_widget(tmp_box(), sub_chunks[1]);
     } else {
         f.render_stateful_widget(list, chunks[0], &mut app.list.state);
     }
@@ -293,7 +293,7 @@ fn input_pop_up(app: &App) -> Paragraph<'static> {
         )
 }
 
-fn detail_winf() -> Block<'static> {
+fn tmp_box() -> Block<'static> {
     Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
