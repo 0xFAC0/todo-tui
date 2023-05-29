@@ -11,3 +11,10 @@ Simply clone the repo and run the crate with `cargo`
  cd todo-tui
  cargo run
  ```
+
+## TODOs
+
+- [ ] Saves
+- [ ] Colorscheme customization
+- [ ] Schedules
+- [ ] Notification
